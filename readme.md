@@ -1,15 +1,15 @@
 # Brainfuck Machine
 
-The purpose of this project is to implement as simple virtual machine that
+The purpose of this project is to implement a simple virtual machine that
 simulates a planned Minecraft redstone computer project. The ISA is simple
 and intended to be packed into 8-bit opcodes containing 4-bit operator and
 4-bit operand.
 
 ## Instruction Set Architecture
 
-### Hardware
+### Hardware (Abstraction)
 
-The hardware of the system contains of the following:
+The hardware abstraction of the system contains of the following:
 
 - Program ROM: an addressable module of registers that contain opcodes
 - Program Pointer: a register containing the address of the current opcode
@@ -20,7 +20,8 @@ The hardware of the system contains of the following:
 
 Additionally, the Minecraft implementation will contain an instruction
 decoder. All registers have a value range of 0-255 and will overflow and/or
-underflow.
+underflow. Addresses are 8-bit, but I plan to use only memory modules of 64
+bytes each.
 
 ### Operators
 
@@ -85,7 +86,7 @@ If you want to use stdin, use a pipe or redirection, i.e.
 
 To debug the program, add `-d` or `--debug` to the end of the command. This
 will print a trace of all instructions run and then the whole stdout in hex
-(normal output is just the non-null bytes).
+(normal output truncates least significant null bytes).
 
 ### Run Assembly
 
@@ -104,7 +105,7 @@ or `python asm.py source_file.s < file`.
 
 To debug the program, add `-d` or `--debug` to the end of the command. This
 will print a trace of all instructions run and then the whole stdout in hex
-(normal output is just the non-null bytes).
+(normal output truncates least significant null bytes).
 
 
 # License
