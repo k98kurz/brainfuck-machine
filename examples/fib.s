@@ -1,4 +1,4 @@
-add 4 adp 1 add 1 adp 1 add 1 sdp 2
+inp adp 1 add 1 adp 1 add 1 sdp 2
 start1: biz end1
     sub 1 adp 2
     start2: biz end2

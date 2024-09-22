@@ -104,11 +104,14 @@ class Buffer:
         return bytes(self.data)
 
 
-def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None, debug: bool = False) -> Buffer:
+def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
+        debug: bool = False, hexinput: bool = False) -> Buffer:
     buffer = bytearray(buffer_size)
     data_ptr = 0
     instr_ptr = 0
     stdinpt = stdinpt or Buffer(buffer_size)
+    inptbuf = Buffer(buffer_size)
+    hasinpt = False
     stdout = Buffer(buffer_size)
     trace = []
 
@@ -126,7 +129,14 @@ def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None, d
             case Operator.SDP:
                 data_ptr -= op.operand
             case Operator.INP:
-                buffer[data_ptr] = stdinpt.read()
+                if not hasinpt:
+                    inp = stdinpt.read()
+                    inp = bytes.fromhex(inp) if hexinput else inp
+                    for i in range(len(inp)):
+                        inptbuf.write(inp[i])
+                    hasinpt = True
+                    inptbuf.ptr = 0
+                buffer[data_ptr] = inptbuf.read()
             case Operator.OUT:
                 stdout.write(buffer[data_ptr])
             case Operator.BIZ:
@@ -147,24 +157,36 @@ def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None, d
 
 def main():
     if len(argv) < 2:
-        print(f'use:\t{argv[0]} src_code_or_file_path [--debug]')
-        print('\t{argv[0]} src_code_or_file_path [--debug] < input')
-        print('\t[command] | {argv[0]} src_code_or_file_path [--debug]')
+        print(f'use:\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
+        print('\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex] < input')
+        print('\t[command] | {argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
         exit()
+
     debug = len(argv) > 2 and argv[2] in ('debug', '--debug', '-d', 'd')
+    justcompile = len(argv) > 2 and argv[2] in ('compile', '--compile', '-c', 'c')
+    usehex = len(argv) > 2 and argv[2] in ('hex', '--hex', '-x', 'x')
+
     if exists(argv[1]) and isfile(argv[1]):
         with open(argv[1], 'r') as f:
             codes = compile(f.read())
     else:
         codes = compile(argv[1])
 
-    result = run(codes, stdinpt=stdin, debug=debug)
+    if justcompile:
+        print(f'{len(codes)} ops')
+        print(' '.join([f'{op.operator.name}:{op.operand}' for op in codes]))
+        return
+
+    result = run(codes, stdinpt=stdin, debug=debug, hexinput=usehex)
 
     if debug:
         print(bytes(result).hex())
     else:
         result = bytes(result).split(b'\x00')
-        print(b'\x00'.join([r for r in result if int.from_bytes(r, 'big')]))
+        if usehex:
+            print('00'.join([r.hex() for r in result if int.from_bytes(r, 'big')]))
+        else:
+            print(b'\x00'.join([r for r in result if int.from_bytes(r, 'big')]))
 
 
 if __name__ == '__main__':
