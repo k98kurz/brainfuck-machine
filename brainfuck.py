@@ -105,7 +105,7 @@ class Buffer:
 
 
 def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
-        debug: bool = False, hexinput: bool = False) -> Buffer:
+        debug: bool = False, hexinput: bool = False, loop_limit: int = 256) -> Buffer:
     buffer = bytearray(buffer_size)
     data_ptr = 0
     instr_ptr = 0
@@ -114,6 +114,7 @@ def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
     hasinpt = False
     stdout = Buffer(buffer_size)
     trace = []
+    loops_executed = 0
 
     while instr_ptr < len(opcodes):
         op = opcodes[instr_ptr]
@@ -145,6 +146,9 @@ def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
             case Operator.BNZ:
                 if buffer[data_ptr] != 0:
                     instr_ptr -= op.operand
+                    loops_executed += 1
+                    if loops_executed >= loop_limit:
+                        raise RuntimeError(f'{loop_limit=} exceeded')
             case Operator.HLT:
                 break
         instr_ptr += 1
@@ -158,8 +162,8 @@ def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
 def main():
     if len(argv) < 2:
         print(f'use:\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
-        print('\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex] < input')
-        print('\t[command] | {argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
+        print(f'\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex] < input')
+        print(f'\t[command] | {argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
         exit()
 
     debug = len(argv) > 2 and argv[2] in ('debug', '--debug', '-d', 'd')

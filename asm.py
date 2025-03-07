@@ -69,8 +69,8 @@ def compile(code: str) -> list[OpCode]:
 def main():
     if len(argv) < 2:
         print(f'use:\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
-        print('\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex] < input')
-        print('\t[command] | {argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
+        print(f'\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex] < input')
+        print(f'\t[command] | {argv[0]} src_code_or_file_path [--debug|--compile|--hex]')
         exit()
     debug = len(argv) > 2 and argv[2] in ('debug', '--debug', '-d', 'd')
     justcompile = len(argv) > 2 and argv[2] in ('compile', '--compile', '-c', 'c')
