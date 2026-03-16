@@ -68,6 +68,68 @@ def compile(code: str) -> list[OpCode]:
 
     return ops
 
+
+def optimize(opcodes: list[OpCode]) -> list[OpCode]:
+    """Combine consecutive OpCodes that use the same Operator up to an
+        Operand of 15 to ensure the result can be encoded with 1 byte
+        per OpCode, then adjust the branch offsets.
+    """
+    new_opcodes = []
+
+    # first phase: combine opcodes
+    i = 0
+    acc = OpCode(opcodes[i].operator, opcodes[i].operand)
+    while True:
+        if i >= len(opcodes) - 1:
+            new_opcodes.append(acc)
+            break
+
+        nextcode = OpCode(opcodes[i+1].operator, opcodes[i+1].operand)
+        i += 1
+
+        if  (   nextcode.operator != acc.operator
+                or nextcode.operand + acc.operand >= 16
+            ):
+            new_opcodes.append(acc)
+            acc = nextcode
+            continue
+
+        acc.operand += nextcode.operand
+
+    # second phase: fix branch offsets
+    def fix_branch_offsets(ops: list[OpCode], start: int = 0) -> None:
+        if start > 0:
+            assert ops[start].operator == Operator.BIZ, (
+                f'must start with BIZ ([); encountered {ops[start].operator.name}')
+        else:
+            for i in range(0, len(ops)):
+                if ops[i].operator == Operator.BIZ:
+                    start = i
+                    break
+            if start == 0:
+                return
+
+        depth = 0
+        for i in range(start+1, len(ops)):
+            if ops[i].operator == Operator.BIZ:
+                depth += 1
+                fix_branch_offsets(ops, i)
+            elif ops[i].operator == Operator.BNZ:
+                if depth == 0:
+                    end = i
+                    break
+                else:
+                    depth -= 1
+
+        if end:
+            offset = end - start
+            ops[end].operand = offset
+            ops[start].operand = offset
+
+    fix_branch_offsets(new_opcodes)
+    return new_opcodes
+
+
 def main():
     if len(argv) < 2:
         print(f'use:\t{argv[0]} src_code_or_file_path [--debug|--compile|--hex]')

@@ -14,6 +14,14 @@ class Operator(Enum):
     BNZ = 6
     INP = 7
     OUT = 8
+    # NOPS
+    NOP9 = 9
+    NOP10 = 10
+    NOP11 = 11
+    NOP12 = 12
+    NOP13 = 13
+    NOP14 = 14
+    NOP15 = 15
 
 
 @dataclass
@@ -21,14 +29,17 @@ class OpCode:
     operator: Operator = field(default=Operator.HLT)
     operand: int = 0
 
+    def __repr__(self) -> str:
+        return f'{self.operator.name} {self.operand}'
+
     def __bytes__(self) -> bytes:
-        return (self.operator.value * 8 + self.operand).to_bytes(1, 'big')
+        return ((self.operator.value << 4) + (self.operand & 15)).to_bytes(1, 'big')
 
     @classmethod
     def decode(cls, code: int):
-        operator = code // 8
-        operand = code - (operator * 8)
-        return cls(operator, operand)
+        operator = (code & 240) >> 4
+        operand = code & 15
+        return cls(Operator(operator), operand)
 
 
 SYMBOLS = [
