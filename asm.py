@@ -25,7 +25,8 @@ def compile(code: str) -> list[OpCode]:
         if operator in ('add', 'sub', 'adp', 'sdp'):
             assert operand.isnumeric(), f'operand for {operator} must be integer'
         if operator in ('biz', 'bnz') and not operand.isnumeric():
-            assert operand in labels, f'operand for {operator} must be integer or valid label'
+            assert operand in labels, (
+                f'operand for {operator} must be integer or valid label')
         match operator:
             case 'add':
                 ops.append(OpCode(Operator.ADD, int(operand)))
@@ -60,7 +61,8 @@ def compile(code: str) -> list[OpCode]:
             case 'hlt':
                 ops.append(OpCode(Operator.HLT))
             case _:
-                assert operator[-1] == ':', f'unrecognized symbol {operator} (not a label; {i=})'
+                assert operator[-1] == ':', (
+                    f'unrecognized symbol {operator} (not a label; {i=})')
         i += 1
         index_map[i2] = len(ops)-1
 

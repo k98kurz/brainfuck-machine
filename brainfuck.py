@@ -70,7 +70,9 @@ def compile(code: str) -> list[OpCode]:
                 idx2 = idx
                 while True:
                     idx2 -= 1
-                    if opcodes[idx2].operator is Operator.BIZ and opcodes[idx2].operand == 0:
+                    if  (   opcodes[idx2].operator is Operator.BIZ
+                            and opcodes[idx2].operand == 0
+                        ):
                         offset = idx - idx2
                         opcodes[idx2].operand = offset
                         opcodes.append(OpCode(Operator.BNZ, offset))
@@ -104,8 +106,10 @@ class Buffer:
         return bytes(self.data)
 
 
-def run(opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
-        debug: bool = False, hexinput: bool = False, loop_limit: int = 256) -> Buffer:
+def run(
+        opcodes: list[OpCode], buffer_size: int = 256, stdinpt: Buffer = None,
+        debug: bool = False, hexinput: bool = False, loop_limit: int = 256
+    ) -> Buffer:
     buffer = bytearray(buffer_size)
     data_ptr = 0
     instr_ptr = 0
