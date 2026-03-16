@@ -12,6 +12,7 @@ original paper, this has only 5 nops and stores operands in the lower
 """
 
 from __future__ import annotations
+import argparse
 from dataclasses import dataclass, field
 from enum import Enum
 from os.path import exists, isfile
@@ -74,8 +75,10 @@ def compile(code: str) -> list[OpCode]:
     symbols = [s for s in code if s in SYMBOLS]
     opcodes = []
     idx = 0
+
     while idx < len(symbols):
         s = symbols[idx]
+
         match s:
             case '+':
                 opcodes.append(OpCode(Operator.ADD, 1))
@@ -107,7 +110,9 @@ def compile(code: str) -> list[OpCode]:
                         opcodes[idx2].operand = offset
                         opcodes.append(OpCode(Operator.BNZ, offset))
                         break
+
         idx += 1
+
     opcodes.append(OpCode(Operator.HLT, 0))
     return opcodes
 
@@ -140,7 +145,7 @@ def optimize(opcodes: list[OpCode]) -> list[OpCode]:
         acc.operand += nextcode.operand
 
     # second phase: fix branch offsets
-    def fix_branch_offsets(ops: list[OpCodes], start: int = 0) -> None:
+    def fix_branch_offsets(ops: list[OpCode], start: int = 0) -> None:
         if start > 0:
             assert ops[start].operator == Operator.BIZ, (
                 f'must start with BIZ ([); encountered {ops[start].operator.name}')
@@ -264,7 +269,7 @@ def run(
         if debug:
             trace.append(op)
             if steps_executed % 1000 == 0:
-                print(' '.join([repr(o) for o in trace]), end=" ")
+                print(' '.join([repr(o) for o in trace]), end=' ')
                 trace.clear()
 
         match op.operator:
@@ -313,10 +318,9 @@ def run(
 
 
 def compile_asm(code: str) -> list[OpCode]:
-    symbols = code.split()
+    symbols = code.lower().split()
     ops = []
     labels = {}
-    index_map = {}
 
     # first find labels
     for i in range(len(symbols)):
@@ -326,16 +330,27 @@ def compile_asm(code: str) -> list[OpCode]:
     i = 0
     while i < len(symbols):
         operator = symbols[i]
-        i2 = i
-        if operator in ('add', 'sub', 'a1p', 's1p', 'a2p', 's2p', 'biz', 'bnz'):
+        operand = 0
+
+        if operator in (
+                'add', 'sub', 'a1p', 's1p', 'a2p', 's2p', 'biz', 'bnz',
+                'cp1', 'cp2'
+            ):
             assert len(symbols) > i + 1, f'missing operand for {operator}'
             operand = symbols[i+1]
             i += 1
+        else:
+            if len(symbols) > i+1 and symbols[i+1].isnumeric():
+                operand = symbols[i+1]
+                i += 1
+
         if operator in ('add', 'sub', 'a1p', 's1p', 'a2p', 's2p'):
             assert operand.isnumeric(), f'operand for {operator} must be integer'
+
         if operator in ('biz', 'bnz') and not operand.isnumeric():
             assert operand in labels, (
                 f'operand for {operator} must be integer or valid label')
+
         match operator:
             case 'add':
                 ops.append(OpCode(Operator.ADD, int(operand)))
@@ -362,53 +377,101 @@ def compile_asm(code: str) -> list[OpCode]:
                     idx = idx2 = len(ops)
                     while True:
                         idx2 -= 1
-                        if ops[idx2].operator is Operator.BIZ and ops[idx2].operand == 0:
+                        if  (   ops[idx2].operator is Operator.BIZ
+                                and ops[idx2].operand == 0
+                            ):
                             offset = idx - idx2
                             ops[idx2].operand = offset
                             ops.append(OpCode(Operator.BNZ, offset))
                             break
             case 'cp1':
-                ops.append(OpCode(Operator.CP1))
+                ops.append(OpCode(Operator.CP1, int(operand)))
             case 'cp2':
-                ops.append(OpCode(Operator.CP2))
+                ops.append(OpCode(Operator.CP2, int(operand)))
             case 'hlt':
-                ops.append(OpCode(Operator.HLT))
+                ops.append(OpCode(Operator.HLT, int(operand)))
             case _:
                 assert operator[-1] == ':', (
                     f'unrecognized symbol {operator} (not a label; {i=})')
         i += 1
-        index_map[i2] = len(ops)-1
 
     return ops
 
 
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description='Implementation of extended brainfuck language from '
+        'Computational Life: How Well-formed Self-replicating Programs Emerge '
+        'from Simple Interaction.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        'code_or_file', help='Source code string or file path to BFF/assembly program'
+    )
+
+    parser.add_argument(
+        '--debug', '-d', action='store_true', help='Enable debug mode (trace execution)'
+    )
+
+    parser.add_argument(
+        '--compile',
+        '-c',
+        action='store_true',
+        help="Only compile and show opcodes, don't run",
+    )
+
+    parser.add_argument(
+        '--hex', '-x', action='store_true', help='Output result as hexadecimal bytes'
+    )
+
+    parser.add_argument(
+        '--asm', '-a', action='store_true', help='Compile and run bff-asm'
+    )
+
+    parser.add_argument(
+        '--toasm',
+        action='store_true',
+        help='Compile from bff to bff-asm format',
+    )
+
+    parser.add_argument(
+        '--max-steps',
+        type=int,
+        default=2**16,
+        help='Maximum execution steps (default: 65536)',
+    )
+
+    return parser.parse_args()
+
 
 def main():
-    if len(argv) < 2:
-        print(
-            f'use:\t{argv[0]} src_code_or_file_path '
-            '[--debug|--compile|--asm|--toasm|--hex]'
-        )
-        exit()
+    args = parse_arguments()
 
-    debug = len(argv) > 2 and argv[2] in ('debug', '--debug', '-d', 'd')
-    justcompile = len(argv) > 2 and argv[2] in ('compile', '--compile', '-c', 'c')
-    usehex = len(argv) > 2 and argv[2] in ('hex', '--hex', '-x', 'x')
-
-    if exists(argv[1]) and isfile(argv[1]):
-        with open(argv[1], 'r') as f:
-            codes = compile(f.read())
+    if exists(args.code_or_file) and isfile(args.code_or_file):
+        with open(args.code_or_file, 'r') as f:
+            code = f.read()
     else:
-        codes = compile(argv[1])
+        code = args.code_or_file
 
-    if justcompile:
+    if args.asm:
+        codes = compile_asm(code)
+    else:
+        codes = compile(code)
+
+    if args.toasm:
+        print(decompile_to_asm(codes))
+        return
+
+    if args.compile:
         print(f'{len(codes)} ops')
         print(' '.join([f'{op.operator.name}:{op.operand}' for op in codes]))
         return
 
-    result = run(codes, debug=debug)
+    result = run(codes, debug=args.debug, max_steps=args.max_steps)
 
-    if usehex or debug:
+    if args.hex or args.debug:
         print(bytes(result).hex())
 
     print([OpCode.decode(o) for o in result])
@@ -416,5 +479,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
