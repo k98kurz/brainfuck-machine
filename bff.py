@@ -22,7 +22,7 @@ from sys import argv, stdin
 class Operator(Enum):
     HLT = 0
     ADD = 1 # add to data under first pointer: +
-    SUB = 2 # sub from data undr first pointer: -
+    SUB = 2 # sub from data under first pointer: -
     S1P = 3 # sub first pointer: <
     A1P = 4 # add first pointer: >
     S2P = 5 # sub second pointer: {
@@ -89,9 +89,9 @@ def compile(code: str) -> list[OpCode]:
             case '>':
                 opcodes.append(OpCode(Operator.A1P, 1))
             case '{':
-                opcodes.append(OpCode(Operator.A2P, 1))
-            case '}':
                 opcodes.append(OpCode(Operator.S2P, 1))
+            case '}':
+                opcodes.append(OpCode(Operator.A2P, 1))
             case ',':
                 opcodes.append(OpCode(Operator.CP1, 1))
             case '.':
@@ -157,7 +157,7 @@ def optimize(opcodes: list[OpCode]) -> list[OpCode]:
             if start == 0:
                 return
 
-        depth = 0
+        depth, end = 0, None
         for i in range(start+1, len(ops)):
             if ops[i].operator == Operator.BIZ:
                 depth += 1
@@ -231,29 +231,6 @@ def decompile_to_asm(opcodes: list[OpCode]) -> str:
     return src
 
 
-class Buffer:
-    data: bytearray
-    ptr: int
-    size: int
-
-    def __init__(self, size: int = 256):
-        self.data = bytearray(size)
-        self.ptr = 0
-        self.size = size
-
-    def read(self) -> int:
-        val = self.data[self.ptr]
-        self.ptr = (self.ptr + 1) % self.size
-        return val
-
-    def write(self, val: int):
-        self.data[self.ptr] = val
-        self.ptr = (self.ptr + 1) % self.size
-
-    def __bytes__(self) -> bytes:
-        return bytes(self.data)
-
-
 def run(
         opcodes: list[OpCode], debug: bool = False, max_steps: int = 2**16,
     ) -> Buffer:
@@ -318,6 +295,7 @@ def run(
 
 
 def compile_asm(code: str) -> list[OpCode]:
+    """Compiles bff asm to OpCodes."""
     symbols = code.lower().split()
     ops = []
     labels = {}
@@ -375,7 +353,7 @@ def compile_asm(code: str) -> list[OpCode]:
                 else:
                     # find nearest biz with operand 0
                     idx = idx2 = len(ops)
-                    while True:
+                    while idx2 > 0:
                         idx2 -= 1
                         if  (   ops[idx2].operator is Operator.BIZ
                                 and ops[idx2].operand == 0
